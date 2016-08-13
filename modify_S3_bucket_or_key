@@ -1,0 +1,135 @@
+import os
+
+import boto
+from boto.s3.key import Key
+
+
+""" This is the uploading function"""
+def upload_to_s3(aws_access_key_id, aws_secret_access_key, file, bucket, key, callback=None, md5=None, reduced_redundancy=False, content_type=None):
+    """
+    Uploads the given file to the AWS S3
+    bucket and key specified.
+
+    callback is a function of the form:
+
+    def callback(complete, total)
+
+    The callback should accept two integer parameters,
+    the first representing the number of bytes that
+    have been successfully transmitted to S3 and the
+    second representing the size of the to be transmitted
+    object.
+
+    Returns boolean indicating success/failure of upload.
+    """
+    try:
+        size = os.fstat(file.fileno()).st_size
+    except:
+        # Not all file objects implement fileno(),
+        # so we fall back on this
+        file.seek(0, os.SEEK_END)
+        size = file.tell()
+
+    conn = boto.connect_s3(aws_access_key_id, aws_secret_access_key)
+    bucket = conn.get_bucket(bucket, validate=True)
+    k = Key(bucket)
+    k.key = key
+    if content_type:
+        k.set_metadata('Content-Type', content_type)
+    sent = k.set_contents_from_file(file, cb=callback, md5=md5, reduced_redundancy=reduced_redundancy, rewind=True)
+
+    # Rewind for later use
+    file.seek(0)
+
+    if sent == size:
+        return True
+    return False
+
+
+
+
+
+""" This is the S3 file/ bucket deleting function.""" 
+def delete_S3_Object(aws_access_key_id, aws_secret_access_key, bucket_name, key_name = 'null', delete_object = 'key', ):
+
+      conn = boto.connect_s3(aws_access_key_id, aws_secret_access_key)
+
+      """
+      The delete_object agrument should be either 'key' or 'bucket' to delete the respective object.
+      """
+
+      if delete_object == 'bucket':
+            """
+            Delete the bucket ``bucket_name``. This method will iterate through all the keys in
+            the given bucket first and delete them. Finally, the bucket will be deleted.
+            """
+            try:
+
+                  b = get_bucket(conn, bucket_name)
+                  keys = b.get_all_keys()
+
+                  for key in keys:
+                        key.delete()
+                        
+                  b.delete()
+                  log.info("Successfully deleted cluster bucket '%s'" % bucket_name)
+
+            except S3ResponseError as e:
+
+                  log.error("Error deleting bucket '%s': %s" % (bucket_name, e))
+
+      else:
+            """
+            Delete the key (a file in a bucket) ``key_name``.  This method will only delete the key you specify.  It is the default argument in the function
+            to prevent inadvertently deleting an entire bucket.
+            """
+            try:
+                  b = conn.get_bucket(bucket_name, validate = True)
+                  
+                  if b:                                                           
+                        b.delete_key(key_name)
+ 
+                        return True
+                  
+            except:
+                  print("Error deleting key'%s'. %s" % (bucket_name, key_name))
+              
+      return False
+
+
+
+
+"""   Example Execution Code:
+      You could easily store these variables and calls in a seperate file (and you should, especially your S3 keys).  I'm including
+      them in this script to keep everything here in one file to make it easier to share.
+"""
+
+"""   These are the parameters you'll need to connect with your S3 instance...
+"""
+AWS_ACCESS_KEY = '<ACCESS_KEY_GOES_HERE>' # Get this from your Amazon S3 security and access configuration.
+AWS_ACCESS_SECRET_KEY = '<ACCESS_SECRET_KEY_GOES_HERE>' # Get this from your Amazon S3 security and access configuration.
+
+
+"""   Here you're declaring the file you want to upload and what you'll call it once it's on Amazon's server.
+"""
+file = open('<FILE_PATH_GOES_HERE>', 'r+') # This is the file you want to upload from your computer to Amazon.
+key = 's3testfile' # This is what you want the uploaded file to be named on Amazon.
+bucket = 'stevenswaycooltestsite' # This is the Amazon S3 bucket you want it to be loaded into.
+
+
+"""   This example snippet uploads the file you declared above...
+"""
+##if upload_to_s3(AWS_ACCESS_KEY, AWS_ACCESS_SECRET_KEY, file, bucket, key):
+##    print('It worked!')
+##else:
+##    print('The upload failed...')
+
+
+"""   This example snippet deletes the file you declared above...
+"""
+##if delete_S3_Object(AWS_ACCESS_KEY, AWS_ACCESS_SECRET_KEY, bucket_name = 'stevenswaycooltestsite' , key_name = 's3testfile'):
+##    print('It worked!')
+##else:
+##    print('The delete failed...')
+
+
